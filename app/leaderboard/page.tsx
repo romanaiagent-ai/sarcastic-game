@@ -10,10 +10,23 @@ interface ScoreEntry {
   date: number;
 }
 
+const MOCK_SCORES: ScoreEntry[] = [
+  { name: "xX_L33T_Xx", score: 9420, wave: 12, date: Date.now() - 3600000 * 2 },
+  { name: "StarCrusher99", score: 7810, wave: 10, date: Date.now() - 3600000 * 5 },
+  { name: "VoidWalker", score: 6200, wave: 9, date: Date.now() - 86400000 },
+  { name: "NightHawk", score: 4100, wave: 7, date: Date.now() - 86400000 * 2 },
+  { name: "SpacePotatoXD", score: 2850, wave: 5, date: Date.now() - 3600000 * 8 },
+  { name: "BadAtGames", score: 1400, wave: 3, date: Date.now() - 3600000 * 12 },
+  { name: "TryingMyBest", score: 800, wave: 2, date: Date.now() - 3600000 * 24 },
+  { name: "PleaseHelp", score: 420, wave: 1, date: Date.now() - 86400000 * 3 },
+  { name: "WhyDoIPlay", score: 150, wave: 1, date: Date.now() - 86400000 * 4 },
+  { name: "YOU", score: 0, wave: 0, date: Date.now() - 86400000 * 5 },
+];
+
 const snarkyComments: Record<number, string> = {
   0: "OK fine, this one might actually be good.",
   1: "Almost impressive. Almost.",
-  2: "Bronze? More like participation trophy.",
+  2: "Bronze? More like a participation trophy.",
   4: "Wave 5. Your mom would be proud. Maybe.",
   9: "Dead last. This is your legacy.",
 };
@@ -30,22 +43,18 @@ function timeAgo(ts: number): string {
 }
 
 export default function Leaderboard() {
-  const [scores, setScores] = useState<ScoreEntry[]>([]);
-  const [kvAvailable, setKvAvailable] = useState<boolean | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [scores, setScores] = useState<ScoreEntry[]>(MOCK_SCORES);
 
   useEffect(() => {
+    // Try real API, fall back to mock silently
     fetch("/api/scores")
       .then((r) => r.json())
       .then((data) => {
-        setScores(data.scores || []);
-        setKvAvailable(data.kvAvailable ?? false);
+        if (data.kvAvailable && data.scores?.length > 0) {
+          setScores(data.scores);
+        }
       })
-      .catch(() => {
-        setScores([]);
-        setKvAvailable(false);
-      })
-      .finally(() => setLoading(false));
+      .catch(() => {});
   }, []);
 
   return (
@@ -53,7 +62,6 @@ export default function Leaderboard() {
       className="min-h-screen flex flex-col items-center py-16 px-4"
       style={{ background: "#050510" }}
     >
-      {/* Back button */}
       <div className="w-full max-w-2xl mb-8">
         <Link href="/">
           <button
@@ -74,12 +82,14 @@ export default function Leaderboard() {
       </div>
 
       <h1
-        className="orbitron font-black mb-2"
         style={{
           color: "#00ffff",
           textShadow: "0 0 20px #00ffff, 0 0 40px #00ffff",
           fontSize: "clamp(1.8rem, 5vw, 3rem)",
           letterSpacing: "0.1em",
+          fontFamily: "Orbitron, sans-serif",
+          fontWeight: 900,
+          marginBottom: "0.5rem",
         }}
       >
         HALL OF SHAME
@@ -93,27 +103,9 @@ export default function Leaderboard() {
           marginBottom: "2rem",
         }}
       >
-        These people are bad at this game. Maybe you too.
+        These people are bad at this game. Especially #10.
       </p>
 
-      {/* Status bar */}
-      {!loading && (
-        <div
-          style={{
-            fontFamily: "monospace",
-            fontSize: "0.7rem",
-            color: kvAvailable ? "#00ff88" : "#ff8800",
-            marginBottom: "1rem",
-            letterSpacing: "0.1em",
-          }}
-        >
-          {kvAvailable
-            ? "● LIVE GLOBAL SCORES"
-            : "⚠ LOCAL MODE — Add Vercel KV to enable global scores"}
-        </div>
-      )}
-
-      {/* Table */}
       <div
         className="w-full max-w-2xl rounded overflow-hidden"
         style={{
@@ -141,130 +133,73 @@ export default function Leaderboard() {
           <span className="text-right">WHEN</span>
         </div>
 
-        {/* Rows */}
-        {loading ? (
-          <div
-            style={{
-              padding: "2rem",
-              textAlign: "center",
-              fontFamily: "monospace",
-              color: "#444",
-              fontSize: "0.85rem",
-            }}
-          >
-            Loading scores... (or there are none because everyone rage-quit)
-          </div>
-        ) : scores.length === 0 ? (
-          <div
-            style={{
-              padding: "2rem",
-              textAlign: "center",
-              fontFamily: "monospace",
-              color: "#444",
-              fontSize: "0.85rem",
-            }}
-          >
-            No scores yet. Be the first to embarrass yourself.
-          </div>
-        ) : (
-          scores.map((entry, idx) => (
-            <div key={idx}>
-              <div
-                className="grid px-4 py-3 items-center"
+        {scores.map((entry, idx) => (
+          <div key={idx}>
+            <div
+              className="grid px-4 py-3 items-center"
+              style={{
+                gridTemplateColumns: "2rem 1fr 6rem 4rem 5rem",
+                background:
+                  idx === scores.length - 1
+                    ? "rgba(255,0,0,0.04)"
+                    : idx % 2 === 0
+                    ? "rgba(255,255,255,0.02)"
+                    : "transparent",
+                borderBottom: "1px solid rgba(255,255,255,0.05)",
+                fontFamily: "monospace",
+                fontSize: "0.85rem",
+              }}
+            >
+              <span
                 style={{
-                  gridTemplateColumns: "2rem 1fr 6rem 4rem 5rem",
-                  background:
-                    idx === scores.length - 1
-                      ? "rgba(255,0,0,0.04)"
-                      : idx % 2 === 0
-                      ? "rgba(255,255,255,0.02)"
-                      : "transparent",
-                  borderBottom: "1px solid rgba(255,255,255,0.05)",
-                  fontFamily: "monospace",
-                  fontSize: "0.85rem",
+                  color: idx === 0 ? "#ffd700" : idx === 1 ? "#c0c0c0" : idx === 2 ? "#cd7f32" : idx === scores.length - 1 ? "#ff4444" : "#555",
+                  fontFamily: "Orbitron, sans-serif",
+                  fontSize: "0.75rem",
                 }}
               >
-                <span
-                  style={{
-                    color:
-                      idx === 0
-                        ? "#ffd700"
-                        : idx === 1
-                        ? "#c0c0c0"
-                        : idx === 2
-                        ? "#cd7f32"
-                        : idx === scores.length - 1
-                        ? "#ff4444"
-                        : "#555",
-                    fontFamily: "Orbitron, sans-serif",
-                    fontSize: "0.75rem",
-                  }}
-                >
-                  {idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : `#${idx + 1}`}
-                </span>
-                <span
-                  style={{
-                    color:
-                      idx === scores.length - 1
-                        ? "#ff4444"
-                        : idx < 3
-                        ? "#fff"
-                        : "#aaa",
-                    letterSpacing: "0.05em",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {entry.name}
-                </span>
-                <span
-                  className="text-right"
-                  style={{ color: "#00ff88", letterSpacing: "0.05em" }}
-                >
-                  {entry.score.toLocaleString()}
-                </span>
-                <span className="text-right" style={{ color: "#666" }}>
-                  {entry.wave}
-                </span>
-                <span
-                  className="text-right"
-                  style={{ color: "#444", fontSize: "0.7rem" }}
-                >
-                  {entry.date ? timeAgo(entry.date) : "—"}
-                </span>
-              </div>
-              {snarkyComments[idx] && (
-                <div
-                  className="px-4 py-1"
-                  style={{
-                    borderBottom: "1px solid rgba(255,255,255,0.05)",
-                    color: "#444",
-                    fontFamily: "monospace",
-                    fontSize: "0.65rem",
-                    fontStyle: "italic",
-                    letterSpacing: "0.05em",
-                  }}
-                >
-                  &gt; {snarkyComments[idx]}
-                </div>
-              )}
+                {idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : `#${idx + 1}`}
+              </span>
+              <span
+                style={{
+                  color: idx === scores.length - 1 ? "#ff4444" : idx < 3 ? "#fff" : "#aaa",
+                  letterSpacing: "0.05em",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {entry.name}
+              </span>
+              <span className="text-right" style={{ color: "#00ff88" }}>
+                {entry.score.toLocaleString()}
+              </span>
+              <span className="text-right" style={{ color: "#666" }}>
+                {entry.wave}
+              </span>
+              <span className="text-right" style={{ color: "#444", fontSize: "0.7rem" }}>
+                {entry.date ? timeAgo(entry.date) : "—"}
+              </span>
             </div>
-          ))
-        )}
+            {snarkyComments[idx] && (
+              <div
+                className="px-4 py-1"
+                style={{
+                  borderBottom: "1px solid rgba(255,255,255,0.05)",
+                  color: "#444",
+                  fontFamily: "monospace",
+                  fontSize: "0.65rem",
+                  fontStyle: "italic",
+                }}
+              >
+                &gt; {snarkyComments[idx]}
+              </div>
+            )}
+          </div>
+        ))}
       </div>
 
-      {/* CTA */}
       <div className="mt-12 text-center">
-        <p
-          style={{
-            color: "#444",
-            fontFamily: "monospace",
-            fontSize: "0.75rem",
-            letterSpacing: "0.1em",
-            marginBottom: "1.5rem",
-          }}
-        >
+        <p style={{ color: "#444", fontFamily: "monospace", fontSize: "0.75rem", letterSpacing: "0.1em", marginBottom: "1.5rem" }}>
           Think you can do better? (You can&apos;t.)
         </p>
         <Link href="/game">

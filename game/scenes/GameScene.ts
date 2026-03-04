@@ -130,6 +130,9 @@ export class GameScene extends Phaser.Scene {
 
     // Show wave start message
     this.showCommentary(this.commentary.getWaveMessage(1), 3000);
+
+    // Start background music
+    this.sfx.startMusic();
   }
 
   private createStarBackground() {
@@ -552,36 +555,14 @@ export class GameScene extends Phaser.Scene {
 
   private updatePlayer(delta: number) {
     const dt = delta / 1000;
-    let dx = 0, dy = 0;
 
-    if (this.cursors.left.isDown || this.wasd.left.isDown) dx -= 1;
-    if (this.cursors.right.isDown || this.wasd.right.isDown) dx += 1;
-    if (this.cursors.up.isDown || this.wasd.up.isDown) dy -= 1;
-    if (this.cursors.down.isDown || this.wasd.down.isDown) dy += 1;
-
-    // Movement is relative to ship facing direction (toward mouse)
-    // W/Up = forward thrust, S/Down = reverse, A/D = strafe
-    const facing = this.playerAngle;
-    const strafe = facing + Math.PI / 2;
-
+    // Screen-absolute WASD — instant direction change, no turning delay.
+    // Ship faces mouse cursor independently (for aiming).
     let mx = 0, my = 0;
-
-    if (this.cursors.up.isDown || this.wasd.up.isDown) {
-      mx += Math.cos(facing);
-      my += Math.sin(facing);
-    }
-    if (this.cursors.down.isDown || this.wasd.down.isDown) {
-      mx -= Math.cos(facing);
-      my -= Math.sin(facing);
-    }
-    if (this.cursors.left.isDown || this.wasd.left.isDown) {
-      mx -= Math.cos(strafe);
-      my -= Math.sin(strafe);
-    }
-    if (this.cursors.right.isDown || this.wasd.right.isDown) {
-      mx += Math.cos(strafe);
-      my += Math.sin(strafe);
-    }
+    if (this.cursors.left.isDown || this.wasd.left.isDown) mx -= 1;
+    if (this.cursors.right.isDown || this.wasd.right.isDown) mx += 1;
+    if (this.cursors.up.isDown || this.wasd.up.isDown) my -= 1;
+    if (this.cursors.down.isDown || this.wasd.down.isDown) my += 1;
 
     if (mx !== 0 || my !== 0) {
       const len = Math.sqrt(mx * mx + my * my);
@@ -873,6 +854,7 @@ export class GameScene extends Phaser.Scene {
 
   private triggerGameOver() {
     this.isGameOver = true;
+    this.sfx.stopMusic();
     this.sfx.playGameOver();
     this.spawnParticles(this.playerX, this.playerY, 0x00ff88, 30);
     this.spawnParticles(this.playerX, this.playerY, 0xffffff, 10);

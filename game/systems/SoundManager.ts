@@ -269,6 +269,155 @@ export class SoundManager {
     osc.stop(ctx.currentTime + 0.09);
   }
 
+  // ─── Background Music ────────────────────────────────────────────────────
+
+  private musicInterval: ReturnType<typeof setInterval> | null = null;
+  private musicBeat: number = 0;
+  private musicPlaying: boolean = false;
+
+  /** Start looping dramatic background music */
+  startMusic() {
+    if (this.musicPlaying) return;
+    this.musicPlaying = true;
+    this.musicBeat = 0;
+    const BPM = 128;
+    const beatMs = (60 / BPM) * 1000;
+
+    this.musicInterval = setInterval(() => {
+      if (this.muted) return;
+      const ctx = this.getCtx();
+      const out = this.output();
+      if (!ctx || !out) return;
+
+      const beat = this.musicBeat % 16;
+
+      // Kick drum on beats 0, 4, 8, 12
+      if (beat % 4 === 0) this._kick(ctx, out);
+
+      // Snare on beats 4 and 12
+      if (beat === 4 || beat === 12) this._snare(ctx, out);
+
+      // Hi-hat every 2 beats
+      if (beat % 2 === 0) this._hihat(ctx, out);
+
+      // Bass line pattern
+      const bassNotes: (number | null)[] = [55, null, 55, null, 49, null, 52, null, 55, null, 55, null, 58, null, 52, null];
+      const bassFreq = bassNotes[beat];
+      if (bassFreq) this._bass(ctx, out, bassFreq, beatMs * 0.9);
+
+      // Arpeggio melody (every 4 beats, offset)
+      const arpNotes: (number | null)[] = [null, 220, null, 277, null, 330, null, 262, null, 220, null, 247, null, 330, null, null];
+      const arpFreq = arpNotes[beat];
+      if (arpFreq) this._arp(ctx, out, arpFreq, beatMs * 0.4);
+
+      // Atmospheric pad every 8 beats
+      if (beat === 0 || beat === 8) this._pad(ctx, out, beat === 0 ? 110 : 98, beatMs * 7);
+
+      this.musicBeat++;
+    }, beatMs);
+  }
+
+  stopMusic() {
+    if (this.musicInterval !== null) {
+      clearInterval(this.musicInterval);
+      this.musicInterval = null;
+    }
+    this.musicPlaying = false;
+  }
+
+  private _kick(ctx: AudioContext, out: AudioNode) {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(150, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(30, ctx.currentTime + 0.12);
+    gain.gain.setValueAtTime(0.8, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.14);
+    osc.connect(gain); gain.connect(out);
+    osc.start(); osc.stop(ctx.currentTime + 0.15);
+  }
+
+  private _snare(ctx: AudioContext, out: AudioNode) {
+    const bufSize = Math.floor(ctx.sampleRate * 0.1);
+    const buf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < bufSize; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / bufSize);
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const filter = ctx.createBiquadFilter();
+    filter.type = "highpass";
+    filter.frequency.value = 1500;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.35, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
+    src.connect(filter); filter.connect(gain); gain.connect(out);
+    src.start(); src.stop(ctx.currentTime + 0.11);
+  }
+
+  private _hihat(ctx: AudioContext, out: AudioNode) {
+    const bufSize = Math.floor(ctx.sampleRate * 0.04);
+    const buf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < bufSize; i++) data[i] = Math.random() * 2 - 1;
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const filter = ctx.createBiquadFilter();
+    filter.type = "highpass";
+    filter.frequency.value = 8000;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.08, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.04);
+    src.connect(filter); filter.connect(gain); gain.connect(out);
+    src.start(); src.stop(ctx.currentTime + 0.05);
+  }
+
+  private _bass(ctx: AudioContext, out: AudioNode, freq: number, duration: number) {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sawtooth";
+    osc.frequency.value = freq;
+    const filter = ctx.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.value = 400;
+    const dt = duration / 1000;
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.setValueAtTime(0.3, ctx.currentTime + dt * 0.7);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dt);
+    osc.connect(filter); filter.connect(gain); gain.connect(out);
+    osc.start(); osc.stop(ctx.currentTime + dt + 0.01);
+  }
+
+  private _arp(ctx: AudioContext, out: AudioNode, freq: number, duration: number) {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "square";
+    osc.frequency.value = freq;
+    const dt = duration / 1000;
+    gain.gain.setValueAtTime(0.08, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dt);
+    osc.connect(gain); gain.connect(out);
+    osc.start(); osc.stop(ctx.currentTime + dt + 0.01);
+  }
+
+  private _pad(ctx: AudioContext, out: AudioNode, freq: number, duration: number) {
+    const osc1 = ctx.createOscillator();
+    const osc2 = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc1.type = "sine";
+    osc2.type = "sine";
+    osc1.frequency.value = freq;
+    osc2.frequency.value = freq * 1.5;
+    const dt = duration / 1000;
+    gain.gain.setValueAtTime(0.0, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.06, ctx.currentTime + dt * 0.1);
+    gain.gain.setValueAtTime(0.06, ctx.currentTime + dt * 0.8);
+    gain.gain.linearRampToValueAtTime(0.0, ctx.currentTime + dt);
+    osc1.connect(gain); osc2.connect(gain); gain.connect(out);
+    osc1.start(); osc2.start();
+    osc1.stop(ctx.currentTime + dt + 0.01);
+    osc2.stop(ctx.currentTime + dt + 0.01);
+  }
+
   toggleMute() {
     this.muted = !this.muted;
     if (this.masterGain) {
