@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import { SarcasticCommentary } from "../systems/SarcasticCommentary";
+import { SoundManager } from "../systems/SoundManager";
 
 interface StarLayer {
   graphics: Phaser.GameObjects.Graphics;
@@ -79,6 +80,9 @@ export class GameScene extends Phaser.Scene {
   private hudWave!: Phaser.GameObjects.Text;
   private hudHealthText!: Phaser.GameObjects.Text;
 
+  // Audio
+  private sfx!: SoundManager;
+
   // Commentary
   private commentary!: SarcasticCommentary;
   private commentaryText!: Phaser.GameObjects.Text;
@@ -108,6 +112,7 @@ export class GameScene extends Phaser.Scene {
     this.wave = 1;
     this.playerHp = this.playerMaxHp;
 
+    this.sfx = new SoundManager();
     this.commentary = new SarcasticCommentary();
 
     this.createStarBackground();
@@ -273,6 +278,17 @@ export class GameScene extends Phaser.Scene {
     this.hudWave.setScrollFactor(0);
 
     this.updateHUD();
+
+    // Mute toggle button
+    const muteBtn = this.add.text(this.gameWidth - 14, 36, "🔊", { fontSize: "16px" });
+    muteBtn.setOrigin(1, 0);
+    muteBtn.setDepth(hudDepth + 2);
+    muteBtn.setScrollFactor(0);
+    muteBtn.setInteractive({ useHandCursor: true });
+    muteBtn.on("pointerup", () => {
+      const muted = this.sfx.toggleMute();
+      muteBtn.setText(muted ? "🔇" : "🔊");
+    });
   }
 
   private updateHUD() {
@@ -449,6 +465,7 @@ export class GameScene extends Phaser.Scene {
     const bx = this.playerX + Math.cos(angle) * 20;
     const by = this.playerY + Math.sin(angle) * 20;
 
+    this.sfx.playShoot();
     this.spawnBullet(bx, by, Math.cos(angle) * speed, Math.sin(angle) * speed, false);
   }
 
@@ -641,6 +658,7 @@ export class GameScene extends Phaser.Scene {
             if (e.hp <= 0) {
               this.killEnemy(e, i);
             } else {
+              this.sfx.playHit();
               this.drawEnemy(e);
             }
             break;
@@ -671,6 +689,7 @@ export class GameScene extends Phaser.Scene {
     const ey = enemy.body.y;
     const colors = { grunt: 0xff2222, shooter: 0xff8800, rusher: 0xaa00ff };
 
+    this.sfx.playExplosion();
     this.spawnParticles(ex, ey, colors[enemy.type], 16);
     this.spawnParticles(ex, ey, 0xffffff, 6);
 
@@ -691,6 +710,7 @@ export class GameScene extends Phaser.Scene {
   private damagePlayer(amount: number) {
     this.playerHp = Math.max(0, this.playerHp - amount);
     this.playerInvincible = 600;
+    this.sfx.playPlayerHit();
     this.triggerShake(6, 250);
     this.updateHUD();
     this.drawPlayer(true);
@@ -755,6 +775,7 @@ export class GameScene extends Phaser.Scene {
           enemy.shootTimer = enemy.shootInterval;
           const angle = Math.atan2(this.playerY - enemy.body.y, this.playerX - enemy.body.x);
           const spd = 200 + this.wave * 10;
+          this.sfx.playEnemyShoot();
           this.spawnBullet(
             enemy.body.x, enemy.body.y,
             Math.cos(angle) * spd, Math.sin(angle) * spd,
@@ -840,6 +861,7 @@ export class GameScene extends Phaser.Scene {
       this.wave++;
 
       const msg = this.commentary.getWaveMessage(this.wave);
+      this.sfx.playWaveStart();
       this.showCommentary(msg, 3000);
 
       this.time.delayedCall(3000, () => {
@@ -851,6 +873,7 @@ export class GameScene extends Phaser.Scene {
 
   private triggerGameOver() {
     this.isGameOver = true;
+    this.sfx.playGameOver();
     this.spawnParticles(this.playerX, this.playerY, 0x00ff88, 30);
     this.spawnParticles(this.playerX, this.playerY, 0xffffff, 10);
     this.triggerShake(12, 500);
