@@ -1,17 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// Gracefully import Vercel KV — works in prod, falls back in dev/no-config
-async function getKV() {
-  try {
-    const { kv } = await import("@vercel/kv");
-    // Test connection with a ping-style op
-    await kv.ping();
-    return kv;
-  } catch {
-    return null;
-  }
-}
-
 export interface ScoreEntry {
   name: string;
   score: number;
@@ -19,15 +7,27 @@ export interface ScoreEntry {
   date: number;
 }
 
+async function getRedis() {
+  const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
+  if (!url || !token) return null;
+  try {
+    const { Redis } = await import("@upstash/redis");
+    return new Redis({ url, token });
+  } catch {
+    return null;
+  }
+}
+
 export async function GET() {
   try {
-    const kv = await getKV();
-    if (!kv) {
+    const redis = await getRedis();
+    if (!redis) {
       return NextResponse.json({ scores: [], kvAvailable: false });
     }
 
-    const raw = await kv.lrange("sarcastic:scores", 0, 199);
-    const scores: ScoreEntry[] = raw
+    const raw = await redis.lrange("sarcastic:scores", 0, 199);
+    const scores: ScoreEntry[] = (raw as string[])
       .map((s) => (typeof s === "string" ? JSON.parse(s) : s))
       .sort((a: ScoreEntry, b: ScoreEntry) => b.score - a.score)
       .slice(0, 10);
@@ -47,8 +47,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "Invalid data" }, { status: 400 });
     }
 
-    const kv = await getKV();
-    if (!kv) {
+    const redis = await getRedis();
+    if (!redis) {
       return NextResponse.json({ ok: false, error: "Leaderboard not configured" });
     }
 
@@ -59,8 +59,8 @@ export async function POST(req: NextRequest) {
       date: Date.now(),
     };
 
-    await kv.lpush("sarcastic:scores", JSON.stringify(entry));
-    await kv.ltrim("sarcastic:scores", 0, 199); // keep last 200
+    await redis.lpush("sarcastic:scores", JSON.stringify(entry));
+    await redis.ltrim("sarcastic:scores", 0, 199);
 
     return NextResponse.json({ ok: true });
   } catch {
